@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	gin "github.com/gin-gonic/gin"
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 func maoGet(c *gin.Context) {
@@ -40,28 +42,70 @@ func register(c *gin.Context) {
 	c.JSON(200, gin.H{"ipv4": data.ip, "port": data.port})
 }
 
-func addDevice(c *gin.Context) {
-	resp, err := http.Get("http://127.0.0.1:8080")
-	if err != nil {
+func addDevice() {
 
+	request, err := http.NewRequest("GET", "http://192.168.1.230:8181/onos/mao/MaoIntegration/netconf/biKnownLinks", nil)
+	request.Header.Add("Authorization", "Basic a2FyYWY6a2FyYWY=")
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 
+	//resp, err := http.Get("http://192.168.1.230:8181/onos/mao/MaoIntegration/netconf/biKnownLinks")
+	client := http.Client{}
+	resp, err := client.Do(request)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	defer resp.Body.Close()
 
 	body,err := ioutil.ReadAll(resp.Body)
-	str := string(body)
+	//str := string(body)
+	//fmt.Println(str)
 
-	fmt.Println(str)
-	c.JSON(200, "MAO-OK")
+
+	links := make([]map[string]interface{}, 0)
+	err = json.Unmarshal(body, &links)
+	if err != nil {
+		fmt.Println("err")
+		fmt.Println(err)
+		return
+	}
+	//fmt.Println("*************************")
+	//for index, link := range links {
+	//	fmt.Println("============= " + strconv.Itoa(index) + " =============")
+	//	fmt.Println(link["localDeviceName"])
+	//	fmt.Println(link["localPortName"])
+	//	fmt.Println(link["remoteDeviceName"])
+	//	fmt.Println(link["remotePortName"])
+	//}
+
+	//fmt.Println(links)
 }
 
-func main() {
+func startRestful() {
 	fmt.Printf("qingdao\n")
 	//gin.SetMode(gin.ReleaseMode)
 	restful := gin.Default()
 	restful.LoadHTMLFiles("index.html")
 	restful.GET("/", registerPage)
 	restful.POST("/register", register)
-	restful.GET("/test", addDevice)
+	//restful.GET("/test", addDevice)
 	restful.Run()
+}
+
+func main() {
+	go startRestful()
+
+	count := 1
+	for {
+		if count % 1000 == 0 {
+			fmt.Println(count)
+			fmt.Println(time.Now())
+		}
+		count++
+		addDevice()
+		//time.Sleep(3 * time.Second)
+	}
 }
